@@ -1,6 +1,6 @@
 # WSS-chat-service
 
-WebSocketServer chat serviceはユーザーとチャットをすることができるものです。
+WebSocketServer Chat Serviceはユーザーとチャットをすることができるものです。
 
 **ユーザー名を設定しなければチャットに参加することはできません。</br>**
 ユーザー名は設定後に変更することができます。</br>
