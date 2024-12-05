@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #connection-status {
+            margin-bottom: 10px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            text-align: center;
+            font-weight: bold;
+        }
+        .connected {
+            color: green;
+        }
+        .disconnected {
+            color: red;
+        }
+        #chat {
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 300px;
+            overflow-y: scroll;
+            margin-bottom: 10px;
+        }
+        .message {
+            margin: 10px 0;
+        }
+        .message.user {
+            text-align: right;
+            color: blue;
+        }
+        .message.other {
+            text-align: left;
+            color: black;
+        }
+        .username {
+            font-weight: bold;
+        }
+        .text {
+            margin-top: 5px;
+        }
+        .system-message {
+            text-align: center;
+            color: gray;
+            font-style: italic;
+        }
+        a {
+            color: blue;
+            text-decoration: underline;
+        }
+        a:hover {
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Chat</h1>
+
+    <!-- 接続状況 -->
+    <div id="connection-status" class="disconnected">Disconnected from server</div>
+
+    <!-- ユーザー名の設定 -->
+    <label for="username">Set Username: </label>
+    <input type="text" id="username" placeholder="Enter your username">
+    <button id="setUsernameBtn">Set Username</button>
+    <p class="warning" id="warning" style="display: none;">Please set a username before sending messages!</p>
+
+    <!-- チャット -->
+    <div id="chat"></div>
+    <textarea id="message" placeholder="Enter your message" rows="3" disabled></textarea>
+    <button id="sendBtn" disabled>Send</button>
+
+    <script>
+        // WebSocketサーバーに接続
+        const socket = new WebSocket('wss://your-app-name.up.railway.app'); // 必要に応じてURLを修正
+
+        let username = null; // 現在のユーザー名を保持
+        const connectionStatus = document.getElementById('connection-status');
+
+        // サーバー接続時
+        socket.addEventListener('open', () => {
+            connectionStatus.textContent = 'Connected to server';
+            connectionStatus.classList.remove('disconnected');
+            connectionStatus.classList.add('connected');
+        });
+
+        // サーバー切断時
+        socket.addEventListener('close', () => {
+            connectionStatus.textContent = 'Disconnected from server';
+            connectionStatus.classList.remove('connected');
+            connectionStatus.classList.add('disconnected');
+        });
+
+        // ユーザー名を設定
+        document.getElementById('setUsernameBtn').addEventListener('click', () => {
+            const usernameInput = document.getElementById('username').value.trim();
+            if (usernameInput) {
+                username = usernameInput;
+                document.getElementById('warning').style.display = 'none';
+                document.getElementById('message').disabled = false;
+                document.getElementById('sendBtn').disabled = false;
+            } else {
+                alert('Username cannot be empty!');
+            }
+        });
+
+        // メッセージ送信
+        document.getElementById('sendBtn').addEventListener('click', () => {
+            const messageInput = document.getElementById('message').value.trim();
+
+            if (!username) {
+                document.getElementById('warning').style.display = 'block';
+                return;
+            }
+
+            if (messageInput) {
+                const formattedMessage = `${username}: ${messageInput}`;
+                socket.send(formattedMessage); // サーバーに送信
+                document.getElementById('message').value = ''; // 入力フィールドをクリア
+
+                // 自分のメッセージをチャットに表示
+                displayMessage(username, messageInput, "user");
+            }
+        });
+
+        // サーバーからメッセージを受信
+        socket.addEventListener('message', (event) => {
+            if (event.data instanceof Blob) {
+                const reader = new FileReader();
+                reader.onload = function () {
+                    processIncomingMessage(reader.result);
+                };
+                reader.readAsText(event.data);
+            } else {
+                processIncomingMessage(event.data);
+            }
+        });
+
+        // 受信メッセージの処理
+        function processIncomingMessage(message) {
+            const [incomingUsername, ...messageParts] = message.split(': ');
+            const incomingText = messageParts.join(': ');
+            displayMessage(incomingUsername, incomingText, "other");
+        }
+
+        // メッセージを表示する関数
+        function displayMessage(username, text, type) {
+            const chatDiv = document.getElementById('chat');
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message');
+
+            if (type === "user") {
+                messageElement.classList.add('user');
+            } else if (type === "other") {
+                messageElement.classList.add('other');
+            }
+
+            const usernameElement = document.createElement('span');
+            usernameElement.classList.add('username');
+            usernameElement.textContent = username;
+
+            const textElement = document.createElement('p');
+            textElement.classList.add('text');
+            textElement.innerHTML = formatMessage(text); // 改行とリンクを処理
+
+            messageElement.appendChild(usernameElement);
+            messageElement.appendChild(textElement);
+
+            chatDiv.appendChild(messageElement);
+            chatDiv.scrollTop = chatDiv.scrollHeight; // チャットをスクロール
+        }
+
+        // 改行とURLを処理する関数
+        function formatMessage(text) {
+            // URLをリンク化
+            const urlPattern = /(https?:\/\/[^\s]+)/g;
+            const linkedText = text.replace(urlPattern, '<a href="$1" target="_blank">$1</a>');
+            // 改行を<br>に変換
+            return linkedText.replace(/\n/g, '<br>');
+        }
+    </script>
+</body>
+</html>
